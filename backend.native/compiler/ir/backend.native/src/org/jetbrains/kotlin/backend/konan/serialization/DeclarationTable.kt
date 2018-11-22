@@ -1,9 +1,11 @@
 package org.jetbrains.kotlin.backend.konan.serialization
 
+import org.jetbrains.kotlin.backend.konan.descriptors.isTopLevelDeclaration
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.fqNameSafe
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.name
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
+import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrAnonymousInitializerImpl
 import org.jetbrains.kotlin.ir.descriptors.IrBuiltIns
@@ -42,10 +44,32 @@ internal fun IrDeclaration.symbolName(): String = when (this) {
 }
 
 internal val IrDeclaration.uniqId: Long
-    get() = this.symbolName().localHash.value
+    get() = this.symbolName().localHash.value //.apply { if (this == 744676413816618719L) error("descriptor = ${this@uniqId.descriptor} symbolName = ${this@uniqId.symbolName()}")}
 
 fun <K, V> MutableMap<K, V>.putOnce(k:K, v: V): Unit {
-    if (this.containsKey(k) && this[k] != v) error("adding $v for $k, but it is already ${this[k]} for $k")
+    // TODO: there are
+    // kotlinx.cinterop.ObjCClassOf<T>.create(format: kotlin.String): T defined in platform.Foundation in file Foundation.kt
+    // and
+    // kotlinx.cinterop.ObjCClassOf<T>.create(string: kotlin.String): T defined in platform.Foundation in file Foundation.kt
+    // and other clashes
+    if (v is IrSimpleFunction && this.containsKey(k) && this[k] != v) {
+        println("a clash:")
+        println("${v.name} in ${v.parent}")
+    }
+    if (this.containsKey(k) && v is IrSimpleFunction &&  v.parent is IrFile && (v.parent as IrFile).fileEntry.name.endsWith("Foundation.kt")) return
+    assert(!this.containsKey(k) || this[k] == v) {
+        println("adding $v for $k, but it is already ${this[k]} for $k")
+        if (v is IrDeclaration) {
+            println("v = ${v}")
+            println("v.name = ${v.name}")
+            println("parent = ${v.parent}")
+            println("parent.name = ${(v.parent as IrFile).fileEntry.name}")
+
+            println("$v is ${v.descriptor}  in ${v.descriptor.containingDeclaration} ; ${this[k]} is ${(this[k] as IrDeclaration).descriptor} in ${(this[k] as IrDeclaration).descriptor.containingDeclaration}")
+            println(v.symbolName())
+            println((this[k] as IrDeclaration).symbolName())
+        }
+    }
     this.put(k, v)
 }
 
@@ -57,9 +81,9 @@ class DescriptorTable {
     // See comment for serializeDescriptorReference() for more details.
     fun descriptorIndex(descriptor: DeclarationDescriptor, uniqId: UniqId) {
 
-        assert(!uniqId.isLocal) {
-            println("### descriptor $descriptor is local!!!")
-        }
+        //assert(!uniqId.isLocal) {
+        //    println("### descriptor $descriptor is local!!!")
+        //}
         descriptors.putOnce(descriptor, uniqId.index)
     }
 }
@@ -68,12 +92,18 @@ data class UniqId (
     val index: Long,
     val isLocal: Boolean
 )
+data class UniqIdKey private constructor(val uniqId: UniqId, val moduleDescriptor: ModuleDescriptor?) {
+    constructor(moduleDescriptor: ModuleDescriptor?, uniqId: UniqId)
+            : this(uniqId, if (uniqId.isLocal) moduleDescriptor else null)
+}
+
 
 // TODO: We don't manage id clashes anyhow now.
 class DeclarationTable(val builtIns: IrBuiltIns, val descriptorTable: DescriptorTable) {
 
     val table = mutableMapOf<IrDeclaration, UniqId>()
     val reverse = mutableMapOf<UniqId, IrDeclaration>() // TODO: remove me. Only needed during the development.
+    val textual = mutableMapOf<UniqId, String>()
     val descriptors = descriptorTable
     var currentIndex = 0L
     //var descriptorIndex = 0L
@@ -100,6 +130,9 @@ class DeclarationTable(val builtIns: IrBuiltIns, val descriptorTable: Descriptor
             }
         }
         reverse.putOnce(index, value)
+
+        textual.put(index, "${if (index.isLocal) "" else value.symbolName()} descriptor = ${value.descriptor}")
+
 
         return index
     }
@@ -149,5 +182,10 @@ internal val IrFunction.uniqFunctionName: String
             if (it.isRoot) "" else "$it."
         }
 
-        return "kfun:$containingDeclarationPart$functionName"
+        val result =  "kfun:$containingDeclarationPart#$functionName"
+
+        if (this.name.asString() == "countByEnumeratingWithState") {
+            println("uniqFunctionName = $result\ndescriptor = ${this.descriptor}\nsymbolName = ${this.symbolName}")
+        }
+        return result
     }

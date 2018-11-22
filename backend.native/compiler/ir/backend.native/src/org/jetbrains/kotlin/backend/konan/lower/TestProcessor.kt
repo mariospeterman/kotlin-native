@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.backend.konan.lower
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassConstructorDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
+import org.jetbrains.kotlin.backend.common.lower.SymbolWithIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.reportWarning
 import org.jetbrains.kotlin.backend.konan.KonanBackendContext
@@ -40,7 +41,6 @@ import org.jetbrains.kotlin.load.kotlin.PackagePartClassUtils
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
-import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.utils.addToStdlib.firstNotNullResult
 
@@ -462,12 +462,15 @@ internal class TestProcessor (val context: KonanBackendContext) {
                     putValueArgument(1, irBoolean(ignored))
                 }
                 generateFunctionRegistration(testSuite.owner.thisReceiver!!,
-                        registerTestCase, registerFunction, functions)
+                        registerTestCase.symbol, registerFunction.symbol, functions)
             }
         }
     }
 
     private val IrClass.ignored: Boolean get() = descriptor.annotations.hasAnnotation(IGNORE_FQ_NAME)
+
+    private val IrClassSymbol.ignored: Boolean get() = descriptor.annotations.hasAnnotation(IGNORE_FQ_NAME)
+    private val IrClassSymbol.isObject: Boolean get() = descriptor.kind == ClassKind.OBJECT
 
     /**
      * Builds a test suite class representing a test class (any class in the original IrFile with method(s)
