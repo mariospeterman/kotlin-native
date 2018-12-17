@@ -14,14 +14,12 @@ import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.*
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptorImpl
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
 import org.jetbrains.kotlin.descriptors.impl.PropertyDescriptorImpl
-import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
@@ -265,8 +263,6 @@ fun IrClass.addFakeOverrides() {
     // TODO: A dirty hack.
     val groupedUnoverriddenSuperFunctions = unoverriddenSuperFunctions.groupBy { it.name.asString() + it.allParameters.size }
 
-    val unoverriddenSuperProperties = mutableSetOf<IrProperty>()
-
     fun createFakeOverride(overriddenFunctions: List<IrSimpleFunction>) =
             overriddenFunctions.first().let { irFunction ->
                 val descriptor = WrappedSimpleFunctionDescriptor()
@@ -277,7 +273,7 @@ fun IrClass.addFakeOverrides() {
                         IrSimpleFunctionSymbolImpl(descriptor),
                         irFunction.name,
                         Visibilities.INHERITED,
-                        Modality.FINAL,
+                        Modality.OPEN,
                         irFunction.returnType,
                         irFunction.isInline,
                         irFunction.isExternal,
@@ -288,7 +284,6 @@ fun IrClass.addFakeOverrides() {
                     parent = this@addFakeOverrides
                     overriddenSymbols += overriddenFunctions.map { it.symbol }
                     copyParameterDeclarationsFrom(irFunction)
-                    irFunction.correspondingProperty?.let { unoverriddenSuperProperties.add(it) }
                 }
             }
 
@@ -296,36 +291,6 @@ fun IrClass.addFakeOverrides() {
             .asSequence()
             .associate { it.value.first() to createFakeOverride(it.value) }
             .toMutableMap()
-
-    for (property in unoverriddenSuperProperties) {
-        val getter = fakeOverriddenFunctions[property.getter]
-        val setter = fakeOverriddenFunctions[property.setter]
-        val descriptor = WrappedPropertyDescriptor()
-        val fakeOverriddenProperty = IrPropertyImpl(
-                UNDEFINED_OFFSET,
-                UNDEFINED_OFFSET,
-                IrDeclarationOrigin.FAKE_OVERRIDE,
-                descriptor,
-                property.name,
-                Visibilities.INHERITED,
-                Modality.FINAL,
-                property.isVar,
-                property.isConst,
-                property.isLateinit,
-                property.isDelegated,
-                property.isExternal
-        ).also {
-            it.parent = this@addFakeOverrides
-            it.getter = getter ?: property.getter
-            it.setter = setter ?: property.setter
-            getter?.correspondingProperty = it
-            setter?.correspondingProperty = it
-            descriptor.bind(it)
-        }
-        declarations += fakeOverriddenProperty
-        property.getter?.let { fakeOverriddenFunctions.remove(it) }
-        property.setter?.let { fakeOverriddenFunctions.remove(it) }
-    }
 
     declarations += fakeOverriddenFunctions.values
 }
@@ -354,6 +319,11 @@ fun IrDeclarationContainer.addChildren(declarations: List<IrDeclaration>) {
 fun IrDeclarationContainer.addChild(declaration: IrDeclaration) {
     this.declarations += declaration
     declaration.accept(SetDeclarationsParentVisitor, this)
+}
+
+fun <T: IrElement> T.setDeclarationsParent(parent: IrDeclarationParent): T {
+    accept(SetDeclarationsParentVisitor, parent)
+    return this
 }
 
 object SetDeclarationsParentVisitor : IrElementVisitor<Unit, IrDeclarationParent> {
