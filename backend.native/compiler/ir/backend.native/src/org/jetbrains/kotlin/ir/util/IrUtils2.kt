@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.descriptors.ParameterDescriptor
 import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptorImpl
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
-import org.jetbrains.kotlin.descriptors.impl.PropertyDescriptorImpl
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
@@ -51,38 +50,29 @@ internal fun IrExpression.isNullConst() = this is IrConst<*> && this.kind == IrC
 private var topLevelInitializersCounter = 0
 
 internal fun IrFile.addTopLevelInitializer(expression: IrExpression, context: KonanBackendContext, threadLocal: Boolean) {
-    val fieldDescriptor = PropertyDescriptorImpl.create(
-            this.packageFragmentDescriptor,
+    val descriptor = WrappedFieldDescriptor(
             if (threadLocal)
                 Annotations.create(listOf(AnnotationDescriptorImpl(context.ir.symbols.threadLocal.defaultType,
                         emptyMap(), SourceElement.NO_SOURCE)))
             else
-                Annotations.EMPTY,
-            Modality.FINAL,
-            Visibilities.PRIVATE,
-            false,
-            "topLevelInitializer${topLevelInitializersCounter++}".synthesizedName,
-            CallableMemberDescriptor.Kind.DECLARATION,
-            SourceElement.NO_SOURCE,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false
+                Annotations.EMPTY
     )
-
-    fieldDescriptor.setType(expression.type.toKotlinType(), emptyList(), null, null)
-    fieldDescriptor.initialize(null, null)
-
     val irField = IrFieldImpl(
             expression.startOffset, expression.endOffset,
-            IrDeclarationOrigin.DEFINED, fieldDescriptor, expression.type
-    )
+            IrDeclarationOrigin.DEFINED,
+            IrFieldSymbolImpl(descriptor),
+            "topLevelInitializer${topLevelInitializersCounter++}".synthesizedName,
+            expression.type,
+            Visibilities.PRIVATE,
+            isFinal = true,
+            isExternal = false,
+            isStatic = true
+    ).apply {
+        descriptor.bind(this)
 
-    irField.initializer = IrExpressionBodyImpl(expression.startOffset, expression.endOffset, expression)
-
-    this.addChild(irField)
+        initializer = IrExpressionBodyImpl(expression.startOffset, expression.endOffset, expression)
+    }
+    addChild(irField)
 }
 
 fun IrClass.addFakeOverrides(symbolTable: SymbolTable) {
