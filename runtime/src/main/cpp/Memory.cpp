@@ -332,16 +332,16 @@ struct MemoryState {
  * Theory of operations.
  *
  * Shared collector can run in any thread, but only in a single one at the moment.
- * It doesn't block mutations, instead all mutations happen in-place, reference addition
- * happens in-place as well, and reference releases to non-zero value are reported to the
- * to the thread-local buffer.
+ * It doesn't block mutations, instead all mutations happen in situ, reference addition
+ * happens in situ as well, and reference releases to non-zero value are reported to the
+ * thread-local buffer.
  * Each thread keeps two buffers for references to process, and they are switched by the collector,
  * so that one is used by the single reader (collector) and another one is being written by the single writer.
  * TODO: shall we use single lock-free deque?
  *
  * Any thread could request collector execution if its local release queue size is above threshold. If collector is
- * already running, we just add ourselves to the queue of threads to process, and then mutators can proceed.
- * Collector will re-check the queue, and may run either it in same or some other thread (i.e. in another mutator).
+ * already running, we just add ourselves to the queue of threads to process, and then mutator can proceed.
+ * Collector will re-check the queue, and may process in same or some other thread (i.e. in another mutator).
  *
  * This way collector can liberally use objectCount_ word of the container without risk of concurrent mutation,
  * and can use concurrent modified trial deletion based on Bacon's paper without risks of collision.
