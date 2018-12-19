@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.backend.common.deepCopyWithVariables
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassConstructorDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedValueParameterDescriptor
-import org.jetbrains.kotlin.backend.common.ir.buildSimpleDelegatingConstructor
-import org.jetbrains.kotlin.backend.common.ir.copy
+import org.jetbrains.kotlin.backend.common.ir.addSimpleDelegatingConstructor
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlockBody
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
@@ -246,7 +246,7 @@ internal class EnumClassLowering(val context: Context) : ClassLoweringPass {
             }
 
             for (superConstructor in irClass.constructors) {
-                val constructor = defaultClass.buildSimpleDelegatingConstructor(superConstructor, context.irBuiltIns)
+                val constructor = defaultClass.addSimpleDelegatingConstructor(superConstructor, context.irBuiltIns)
                 defaultEnumEntryConstructors[superConstructor] = constructor
 
                 for (parameter in constructor.valueParameters) {
@@ -507,18 +507,17 @@ internal class EnumClassLowering(val context: Context) : ClassLoweringPass {
                                 isNoinline = false
                         ).apply {
                             it.bind(this)
+                            parent = loweredConstructor
                         }
                     }
 
             loweredConstructor.valueParameters += createSynthesizedValueParameter(0, "name", context.irBuiltIns.stringType)
             loweredConstructor.valueParameters += createSynthesizedValueParameter(1, "ordinal", context.irBuiltIns.intType)
-            loweredConstructor.valueParameters += constructor.valueParameters.map {
-                it.copy(startOffset, endOffset, it.loweredIndex, constructor.origin).apply {
+            constructor.valueParameters.mapTo(loweredConstructor.valueParameters) {
+                it.copyTo(loweredConstructor, index = it.loweredIndex).apply {
                     loweredEnumConstructorParameters[it] = this
                 }
             }
-
-            loweredConstructor.valueParameters.forEach { it.parent = loweredConstructor }
 
             loweredEnumConstructors[constructor] = loweredConstructor
 

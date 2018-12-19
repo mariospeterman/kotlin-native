@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.backend.common.AbstractValueUsageTransformer
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.atMostOne
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
-import org.jetbrains.kotlin.backend.common.ir.copy
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.target
@@ -453,9 +453,6 @@ private val Context.getLoweredInlineClassConstructor: (IrConstructor) -> IrSimpl
     ).apply {
         descriptor.bind(this)
         parent = irConstructor.parent
-        irConstructor.valueParameters.mapIndexedTo(valueParameters) { index, parameter ->
-            parameter.copy(irConstructor.startOffset, irConstructor.endOffset, index,
-                    IrDeclarationOrigin.DEFINED).also { it.parent = this }
-        }
+        irConstructor.valueParameters.mapTo(valueParameters) { it.copyTo(this) }
     }
 }

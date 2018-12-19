@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.konan.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.descriptors.*
-import org.jetbrains.kotlin.backend.common.ir.copy
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
@@ -17,8 +17,6 @@ import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.fqNameSafe
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.isFunctionOrKFunctionType
 import org.jetbrains.kotlin.backend.konan.llvm.functionName
-import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
-import org.jetbrains.kotlin.builtins.getFunctionalClassKind
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
@@ -27,15 +25,12 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrClassImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrConstructorImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrValueParameterImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrInstanceInitializerCallImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrClassSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrConstructorSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -242,8 +237,7 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
                 functionReferenceClass.declarations += this
 
                 boundFunctionParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                    parameter.copy(startOffset, endOffset, index,
-                            DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL).also { it.parent = this }
+                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index)
                 }
 
                 body = context.createIrBuilder(symbol, startOffset, endOffset).irBlockBody {
@@ -299,8 +293,7 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
                 this.createDispatchReceiverParameter()
 
                 superFunction.valueParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                    parameter.copy(startOffset, endOffset, index, // FIXME: substitute
-                            DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL).also { it.parent = this }
+                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index) // FIXME: substitute
                 }
 
                 overriddenSymbols += superFunction.symbol

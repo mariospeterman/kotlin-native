@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassConstructorDe
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedVariableDescriptor
-import org.jetbrains.kotlin.backend.common.ir.copy
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
@@ -386,8 +386,7 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
 
                 (functionParameters + baseClassConstructor.valueParameters[0])
                         .mapIndexedTo(valueParameters) { index, parameter ->
-                            parameter.copy(startOffset, endOffset, index,
-                                    DECLARATION_ORIGIN_COROUTINE_IMPL).also { it.parent = this }
+                            parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
                         }
 
                 val irBuilder = context.createIrBuilder(symbol, startOffset, endOffset)
@@ -428,8 +427,7 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                 coroutineClass.declarations += this
 
                 boundParams.mapIndexedTo(valueParameters) { index, parameter ->
-                    parameter.copy(startOffset, endOffset, index,
-                            DECLARATION_ORIGIN_COROUTINE_IMPL).also { it.parent = this }
+                    parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
                 }
 
                 val irBuilder = context.createIrBuilder(symbol, startOffset, endOffset)
@@ -470,8 +468,7 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
 
                 (unboundArgs + create1CompletionParameter)
                         .mapIndexedTo(valueParameters) { index, parameter ->
-                            parameter.copy(startOffset, endOffset, index,
-                                    DECLARATION_ORIGIN_COROUTINE_IMPL).also { it.parent = this }
+                            parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
                         }
 
                 this.createDispatchReceiverParameter()
@@ -528,8 +525,7 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                         // Skip completion - invoke() already has it implicitly as a suspend function.
                         .take(createFunction.valueParameters.size - 1)
                         .mapIndexedTo(valueParameters) { index, parameter ->
-                            parameter.copy(startOffset, endOffset, index,
-                                    DECLARATION_ORIGIN_COROUTINE_IMPL).also { it.parent = this }
+                            parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
                         }
 
                 this.createDispatchReceiverParameter()
@@ -589,8 +585,7 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                     coroutineClass.declarations += this
 
                     superInvokeSuspendFunction.valueParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                        parameter.copy(startOffset, endOffset, index,
-                                DECLARATION_ORIGIN_COROUTINE_IMPL).also { it.parent = this }
+                        parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
                     }
 
                     this.createDispatchReceiverParameter()

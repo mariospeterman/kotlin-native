@@ -8,10 +8,8 @@ package org.jetbrains.kotlin.backend.konan
 import llvm.LLVMDumpModule
 import llvm.LLVMModuleRef
 import org.jetbrains.kotlin.backend.common.DumpIrTreeWithDescriptorsVisitor
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedFieldDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedTypeParameterDescriptor
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedValueParameterDescriptor
 import org.jetbrains.kotlin.backend.common.validateIrModule
 import org.jetbrains.kotlin.backend.konan.descriptors.*
 import org.jetbrains.kotlin.backend.konan.ir.KonanIr
@@ -31,7 +29,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFieldImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrTypeParameterImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrValueParameterImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
@@ -52,10 +49,8 @@ import org.jetbrains.kotlin.serialization.deserialization.getName
 import java.lang.System.out
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.reflect.KProperty
-import org.jetbrains.kotlin.backend.common.ir.copy
-import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
+import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.ir.symbols.impl.IrTypeParameterSymbolImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 
 internal class SpecialDeclarationsFactory(val context: Context) {
     private val enumSpecialDeclarationsFactory by lazy { EnumSpecialDeclarationsFactory(context) }
@@ -179,30 +174,9 @@ internal class SpecialDeclarationsFactory(val context: Context) {
                 }
             }
 
-            dispatchReceiverParameter =
-                    dispatchReceiver?.copy(startOffset, endOffset, 0, origin)?.also { it.parent = this }
-            extensionReceiverParameter =
-                    extensionReceiver?.copy(startOffset, endOffset, 0, origin)?.also { it.parent = this }
-
-            function.valueParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                val bridge = this
-                WrappedValueParameterDescriptor().let {
-                    IrValueParameterImpl(
-                            startOffset, endOffset,
-                            origin,
-                            IrValueParameterSymbolImpl(it),
-                            parameter.name,
-                            index,
-                            valueParameterTypes[index],
-                            parameter.varargElementType,
-                            parameter.isCrossinline,
-                            parameter.isNoinline
-                    ).apply {
-                        it.bind(this)
-                        parent = bridge
-                    }
-                }
-            }
+            dispatchReceiverParameter = dispatchReceiver?.copyTo(this)
+            extensionReceiverParameter = extensionReceiver?.copyTo(this)
+            function.valueParameters.mapTo(valueParameters) { it.copyTo(this, type = valueParameterTypes[it.index]) }
 
             function.typeParameters.mapIndexedTo(typeParameters) { index, parameter ->
                 WrappedTypeParameterDescriptor().let {

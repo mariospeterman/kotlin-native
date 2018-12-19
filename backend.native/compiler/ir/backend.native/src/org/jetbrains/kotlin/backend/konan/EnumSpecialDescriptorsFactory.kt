@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.konan
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedFieldDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
-import org.jetbrains.kotlin.backend.common.ir.buildSimpleDelegatingConstructor
+import org.jetbrains.kotlin.backend.common.ir.addSimpleDelegatingConstructor
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -100,7 +100,7 @@ internal class EnumSpecialDeclarationsFactory(val context: Context) {
         }
 
         val constructorOfAny = context.irBuiltIns.anyClass.owner.constructors.first()
-        implObject.buildSimpleDelegatingConstructor(
+        implObject.addSimpleDelegatingConstructor(
                 constructorOfAny,
                 context.irBuiltIns,
                 true // TODO: why primary?
