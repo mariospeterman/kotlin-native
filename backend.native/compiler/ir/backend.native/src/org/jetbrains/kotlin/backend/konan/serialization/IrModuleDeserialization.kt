@@ -1381,7 +1381,7 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
             do {
                 val key = reachableTopLevels.first()
 
-                println("key = $key")
+                //println("key = $key")
 
                 if (deserializedSymbols[key]?.isBound == true) {
                     reachableTopLevels.remove(key)

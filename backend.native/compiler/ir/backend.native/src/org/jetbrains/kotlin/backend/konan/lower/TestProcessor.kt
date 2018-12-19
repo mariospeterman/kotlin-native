@@ -462,15 +462,15 @@ internal class TestProcessor (val context: KonanBackendContext) {
                     putValueArgument(1, irBoolean(ignored))
                 }
                 generateFunctionRegistration(testSuite.owner.thisReceiver!!,
-                        registerTestCase.symbol, registerFunction.symbol, functions)
+                        registerTestCase, registerFunction, functions)
             }
         }
     }
 
     private val IrClass.ignored: Boolean get() = descriptor.annotations.hasAnnotation(IGNORE_FQ_NAME)
 
-    private val IrClassSymbol.ignored: Boolean get() = descriptor.annotations.hasAnnotation(IGNORE_FQ_NAME)
-    private val IrClassSymbol.isObject: Boolean get() = descriptor.kind == ClassKind.OBJECT
+    //private val IrClassSymbol.ignored: Boolean get() = descriptor.annotations.hasAnnotation(IGNORE_FQ_NAME)
+    //private val IrClassSymbol.isObject: Boolean get() = descriptor.kind == ClassKind.OBJECT
 
     /**
      * Builds a test suite class representing a test class (any class in the original IrFile with method(s)

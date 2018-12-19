@@ -142,6 +142,9 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
     phaser.phase(KonanPhase.COPY_DEFAULT_VALUES_TO_ACTUAL) {
         context.irModule!!.files.forEach(ExpectToActualDefaultValueCopier(context)::lower)
     }
+
+    context.irModule!!.patchDeclarationParents() // why do we need it?
+
     phaser.phase(KonanPhase.SERIALIZER) {
         val declarationTable = DeclarationTable(context.irModule!!.irBuiltins, DescriptorTable())
         val serializedIr = IrModuleSerialization(context, declarationTable, onlyForInlines = false).serializedIrModule(context.irModule!!)

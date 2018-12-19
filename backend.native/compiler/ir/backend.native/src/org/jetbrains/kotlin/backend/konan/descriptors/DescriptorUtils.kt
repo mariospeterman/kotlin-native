@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.backend.konan.descriptors
 
+import org.jetbrains.kotlin.backend.common.ir.ir2stringWhole
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.*
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.ClassDescriptor
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.ConstructorDescriptor
@@ -240,7 +241,7 @@ val IrDeclaration.isPropertyField get() =
     this is IrField && this.correspondingProperty != null
 
 val IrDeclaration.isTopLevelDeclaration get() =
-    parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField
+    try { parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField } catch(e: Throwable) {println("${ir2stringWhole(this)}"); throw e}
 
 fun IrDeclaration.findTopLevelDeclaration(): IrDeclaration =
     if (this.isTopLevelDeclaration) this

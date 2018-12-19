@@ -303,11 +303,6 @@ fun IrClass.addFakeOverrides() {
     // TODO: A dirty hack.
     val groupedUnoverriddenSuperFunctions = unoverriddenSuperFunctions.groupBy { it.name.asString() + it.allParameters.size }
 
-    // TODO: A dirty hack.
-    val groupedUnoverriddenSuperFunctions = unoverriddenSuperFunctions.groupBy { it.name.asString() + it.allParameters.size }
-
-    val unoverriddenSuperProperties = mutableSetOf<IrProperty>()
-
     fun createFakeOverride(overriddenFunctions: List<IrSimpleFunction>) =
             overriddenFunctions.first().let { irFunction ->
                 val descriptor = WrappedSimpleFunctionDescriptor()
