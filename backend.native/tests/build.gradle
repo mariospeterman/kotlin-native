@@ -546,10 +546,9 @@ task runtime_basic_exit(type: RunStandaloneKonanTest) {
     expectedExitStatus = 42
 }
 
-// seems to be an issue with nextBytes$default
-//task runtime_random(type: RunKonanTest) {
-    //source = "runtime/basic/random.kt"
-//}
+task runtime_random(type: RunKonanTest) {
+    source = "runtime/basic/random.kt"
+}
 
 task runtime_worker_random(type: RunKonanTest) {
     disabled = (project.testTarget == 'wasm32') // Uses workers.
