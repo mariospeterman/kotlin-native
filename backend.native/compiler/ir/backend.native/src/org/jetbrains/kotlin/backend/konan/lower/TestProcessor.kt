@@ -30,18 +30,13 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrClassSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrConstructorSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classifierOrNull
-import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.load.kotlin.PackagePartClassUtils
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
-import org.jetbrains.kotlin.storage.LockBasedStorageManager
-import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.utils.addToStdlib.firstNotNullResult
 
 internal class TestProcessor (val context: KonanBackendContext) {
@@ -159,6 +154,8 @@ internal class TestProcessor (val context: KonanBackendContext) {
     private val FunctionKind.runtimeKind: IrEnumEntrySymbol
         get() = symbols.getTestFunctionKind(this)
 
+    private fun IrType.isTestFunctionKind() = classifierOrNull == symbols.testFunctionKind
+
     private data class TestFunction(
         val function: IrFunction,
         val kind: FunctionKind,
@@ -267,7 +264,7 @@ internal class TestProcessor (val context: KonanBackendContext) {
 
         fun IrFunction.checkFunctionSignature() {
             // Test runner requires test functions to have the following signature: () -> Unit.
-            if (returnType.classifierOrNull != context.irBuiltIns.unitClass) {
+            if (!returnType.isUnit()) {
                 context.reportCompilationError(
                         "Test function must return Unit: $fqNameSafe", irFile, this
                 )
@@ -334,7 +331,7 @@ internal class TestProcessor (val context: KonanBackendContext) {
     //region Symbol and IR builders
 
     /**
-     * Builds a method in `[testSuite]` class with name `[getterName]`
+     * Builds a method in `[owner]` class with name `[getterName]`
      * returning a reference to an object represented by `[objectSymbol]`.
      */
     private fun buildObjectGetter(objectSymbol: IrClassSymbol,
@@ -408,8 +405,8 @@ internal class TestProcessor (val context: KonanBackendContext) {
 
     private val baseClassSuiteConstructor = baseClassSuite.constructors.single {
         it.valueParameters.size == 2
-                && it.valueParameters[0].type.classifierOrNull == context.irBuiltIns.stringClass  // name: String
-                && it.valueParameters[1].type.classifierOrNull == context.irBuiltIns.booleanClass // ignored: Boolean
+                && it.valueParameters[0].type.isString()  // name: String
+                && it.valueParameters[1].type.isBoolean() // ignored: Boolean
     }
 
     /**
@@ -442,15 +439,15 @@ internal class TestProcessor (val context: KonanBackendContext) {
                     simpleFunctions().single { it.name.asString() == name && predicate(it) }
 
             val registerTestCase = baseClassSuite.getFunction("registerTestCase") {
-                it.valueParameters.size == 3 &&
-                it.valueParameters[0].type.classifierOrNull == context.irBuiltIns.stringClass && // name: String
-                it.valueParameters[1].type.isFunction() &&           // function: testClassType.() -> Unit
-                it.valueParameters[2].type.classifierOrNull == context.irBuiltIns.booleanClass   // ignored: Boolean
+                it.valueParameters.size == 3
+                        && it.valueParameters[0].type.isString()   // name: String
+                        && it.valueParameters[1].type.isFunction() // function: testClassType.() -> Unit
+                        && it.valueParameters[2].type.isBoolean()  // ignored: Boolean
             }
             val registerFunction = baseClassSuite.getFunction("registerFunction") {
-                it.valueParameters.size == 2 &&
-                it.valueParameters[0].type.classifierOrNull == symbols.testFunctionKind && // kind: TestFunctionKind
-                it.valueParameters[1].type.isFunction()                                    // function: () -> Unit
+                it.valueParameters.size == 2
+                        && it.valueParameters[0].type.isTestFunctionKind() // kind: TestFunctionKind
+                        && it.valueParameters[1].type.isFunction()         // function: () -> Unit
             }
 
             body = context.createIrBuilder(symbol).irBlockBody {
@@ -505,22 +502,22 @@ internal class TestProcessor (val context: KonanBackendContext) {
                     symbol, this, functions, testClass.ignored
             )
 
-            val instanceGetterBuilder: IrFunction
-            val companionGetterBuilder: IrFunction?
+            val instanceGetter: IrFunction
+            val companionGetter: IrFunction?
 
             if (testClass.kind == ClassKind.OBJECT) {
-                instanceGetterBuilder = buildObjectGetter(testClass.symbol, this, INSTANCE_GETTER_NAME)
-                companionGetterBuilder = buildObjectGetter(testClass.symbol, this, COMPANION_GETTER_NAME)
+                instanceGetter = buildObjectGetter(testClass.symbol, this, INSTANCE_GETTER_NAME)
+                companionGetter = buildObjectGetter(testClass.symbol, this, COMPANION_GETTER_NAME)
             } else {
-                instanceGetterBuilder = buildInstanceGetter(testClass.symbol, this, INSTANCE_GETTER_NAME)
-                companionGetterBuilder = testCompanion?.let {
+                instanceGetter = buildInstanceGetter(testClass.symbol, this, INSTANCE_GETTER_NAME)
+                companionGetter = testCompanion?.let {
                     buildObjectGetter(it.symbol, this, COMPANION_GETTER_NAME)
                 }
             }
 
             declarations += constructor
-            declarations += instanceGetterBuilder
-            companionGetterBuilder?.let { declarations += it }
+            declarations += instanceGetter
+            companionGetter?.let { declarations += it }
 
             superTypes += symbols.baseClassSuite.typeWith(listOf(testClassType, testCompanionType))
             addFakeOverrides()
@@ -546,7 +543,6 @@ internal class TestProcessor (val context: KonanBackendContext) {
         if (topLevelSuiteNames.contains(name)) {
             context.reportCompilationError("Package '${irFile.fqName}' has top-level test " +
                     "functions in several files with the same name: '${irFile.fileName}'")
-            return false
         }
         topLevelSuiteNames.add(name)
         return true
@@ -555,20 +551,20 @@ internal class TestProcessor (val context: KonanBackendContext) {
     private val topLevelSuite = symbols.topLevelSuite.owner
     private val topLevelSuiteConstructor = topLevelSuite.constructors.single {
         it.valueParameters.size == 1
-                && it.valueParameters[0].type.classifierOrNull == context.irBuiltIns.stringClass
+                && it.valueParameters[0].type.isString()
     }
     private val topLevelSuiteRegisterFunction = topLevelSuite.simpleFunctions().single {
         it.name.asString() == "registerFunction"
                 && it.valueParameters.size == 2
-                && it.valueParameters[0].type.classifierOrNull == symbols.testFunctionKind
+                && it.valueParameters[0].type.isTestFunctionKind()
                 && it.valueParameters[1].type.isFunction()
     }
     private val topLevelSuiteRegisterTestCase = topLevelSuite.simpleFunctions().single {
         it.name.asString() == "registerTestCase"
                 && it.valueParameters.size == 3
-                && it.valueParameters[0].type.classifierOrNull == context.irBuiltIns.stringClass
+                && it.valueParameters[0].type.isString()
                 && it.valueParameters[1].type.isFunction()
-                && it.valueParameters[2].type.classifierOrNull == context.irBuiltIns.booleanClass
+                && it.valueParameters[2].type.isBoolean()
     }
 
     private fun generateTopLevelSuite(irFile: IrFile, functions: Collection<TestFunction>) {
