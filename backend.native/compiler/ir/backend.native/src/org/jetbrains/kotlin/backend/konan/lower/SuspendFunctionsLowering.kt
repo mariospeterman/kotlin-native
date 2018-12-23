@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.descriptors.WrappedClassDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.descriptors.WrappedVariableDescriptor
 import org.jetbrains.kotlin.backend.common.ir.copyTo
+import org.jetbrains.kotlin.backend.common.ir.copyToWithoutSuperTypes
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
@@ -277,9 +278,14 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                 it.bind(this)
                 parent = irFunction.parent
                 createParameterDeclarations()
+                irFunction.typeParameters.mapTo(typeParameters) { typeParam ->
+                    typeParam.copyToWithoutSuperTypes(this).apply { superTypes += typeParam.superTypes }
+                }
             }
         }
         private val coroutineClassThis = coroutineClass.thisReceiver!!
+
+        private val continuationType = continuationClassSymbol.typeWith(irFunction.returnType)
 
         // Save all arguments to fields.
         private val argumentToPropertiesMap = functionParameters.associate {
@@ -320,7 +326,6 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                 superTypes += suspendFunctionClass.typeWith(suspendFunctionClassTypeArguments)
 
                 functionClass = symbols.functions[numberOfParameters + 1].owner
-                val continuationType = continuationClassSymbol.typeWith(irFunction.returnType)
                 functionClassTypeArguments = unboundParameterTypes + continuationType + context.irBuiltIns.anyNType
                 superTypes += functionClass.typeWith(functionClassTypeArguments)
             }
@@ -384,10 +389,12 @@ internal class SuspendFunctionsLowering(val context: Context): FileLoweringPass 
                 parent = coroutineClass
                 coroutineClass.declarations += this
 
-                (functionParameters + baseClassConstructor.valueParameters[0])
-                        .mapIndexedTo(valueParameters) { index, parameter ->
-                            parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
-                        }
+                functionParameters.mapIndexedTo(valueParameters) { index, parameter ->
+                    parameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL, index)
+                }
+                val continuationParameter = baseClassConstructor.valueParameters[0]
+                valueParameters += continuationParameter.copyTo(this, DECLARATION_ORIGIN_COROUTINE_IMPL,
+                        index = valueParameters.size, type = continuationType)
 
                 val irBuilder = context.createIrBuilder(symbol, startOffset, endOffset)
                 body = irBuilder.irBlockBody {

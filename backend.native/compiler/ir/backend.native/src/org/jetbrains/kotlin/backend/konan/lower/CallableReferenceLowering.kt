@@ -137,6 +137,10 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
         private val boundFunctionParameters = functionReference.getArgumentsWithIr().map { it.first }
         private val unboundFunctionParameters = functionParameters - boundFunctionParameters
 
+        private val typeArgumentsMap = referencedFunction.typeParameters.associate { typeParam ->
+            typeParam.symbol to functionReference.getTypeArgument(typeParam.index)!!
+        }
+
         private val functionReferenceClass = WrappedClassDescriptor().let {
             IrClassImpl(
                     startOffset,endOffset,
@@ -237,7 +241,8 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
                 functionReferenceClass.declarations += this
 
                 boundFunctionParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index)
+                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index,
+                            type = parameter.type.substitute(typeArgumentsMap))
                 }
 
                 body = context.createIrBuilder(symbol, startOffset, endOffset).irBlockBody {
@@ -279,7 +284,7 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
                     superFunction.name,
                     Visibilities.PRIVATE,
                     Modality.FINAL,
-                    superFunction.returnType, // FIXME: substitute
+                    referencedFunction.returnType,
                     isInline = false,
                     isExternal = false,
                     isTailrec = false,
@@ -293,7 +298,8 @@ internal class CallableReferenceLowering(val context: Context): FileLoweringPass
                 this.createDispatchReceiverParameter()
 
                 superFunction.valueParameters.mapIndexedTo(valueParameters) { index, parameter ->
-                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index) // FIXME: substitute
+                    parameter.copyTo(this, DECLARATION_ORIGIN_FUNCTION_REFERENCE_IMPL, index,
+                            type = parameter.type.substitute(typeArgumentsMap))
                 }
 
                 overriddenSymbols += superFunction.symbol

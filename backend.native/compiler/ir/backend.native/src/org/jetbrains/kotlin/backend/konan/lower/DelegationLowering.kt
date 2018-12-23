@@ -238,15 +238,17 @@ internal class PropertyDelegationLowering(val context: Context) : FileLoweringPa
                         type          = getterKFunctionType,
                         symbol        = expression.getter!!,
                         descriptor    = getter.descriptor,
-                        typeArgumentsCount = 0,
-                        valueArgumentsCount = expression.getter!!.owner.valueParameters.size
+                        typeArgumentsCount = getter.typeParameters.size,
+                        valueArgumentsCount = getter.valueParameters.size
                 ).apply {
                     this.dispatchReceiver = dispatchReceiver?.let { irGet(it) }
                     this.extensionReceiver = extensionReceiver?.let { irGet(it) }
+                    for (index in 0 until expression.typeArgumentsCount)
+                        putTypeArgument(index, expression.getTypeArgument(index))
                 }
             }
 
-            val setterCallableReference = expression.setter?.owner?.let {
+            val setterCallableReference = expression.setter?.owner?.let { setter ->
                 if (!isKMutablePropertyType(expression.type)) null
                 else {
                     val setterKFunctionType = this@PropertyDelegationLowering.context.ir.symbols.getKFunctionType(
@@ -258,12 +260,14 @@ internal class PropertyDelegationLowering(val context: Context) : FileLoweringPa
                             endOffset     = endOffset,
                             type          = setterKFunctionType,
                             symbol        = expression.setter!!,
-                            descriptor    = it.descriptor,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = expression.setter!!.owner.valueParameters.size
+                            descriptor    = setter.descriptor,
+                            typeArgumentsCount = setter.typeParameters.size,
+                            valueArgumentsCount = setter.valueParameters.size
                     ).apply {
                         this.dispatchReceiver = dispatchReceiver?.let { irGet(it) }
                         this.extensionReceiver = extensionReceiver?.let { irGet(it) }
+                        for (index in 0 until expression.typeArgumentsCount)
+                            putTypeArgument(index, expression.getTypeArgument(index))
                     }
                 }
             }
