@@ -53,6 +53,6 @@ interface KonanLibraryLayout {
     val wholeIrFile
         get() = File(irDir, "wholeIr.kni")
     val irIndex: File
-        get() = File(irDir, "index.txt")
+        get() = File(irDir, "debug.txt")
 
 }

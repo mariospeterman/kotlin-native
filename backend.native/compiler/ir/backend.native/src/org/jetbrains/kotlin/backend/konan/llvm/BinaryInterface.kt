@@ -157,7 +157,7 @@ private val IrFunction.signature: String
     get() {
         val extensionReceiverPart = this.extensionReceiverParameter?.extensionReceiverNamePart ?: ""
         val argsPart = this.valueParameters.map {
-            val argName = if (this.hasObjCFactoryAnnotation()) "${it.name}:" else ""
+            val argName = if (this.hasObjCFactoryAnnotation() || this.isObjCClassMethod()) "${it.name}:" else ""
             "$argName${typeToHashString(it.type)}${if (it.isVararg) "_VarArg" else ""}"
         }.joinToString(";")
         // Distinguish value types and references - it's needed for calling virtual methods through bridges.
@@ -190,10 +190,6 @@ internal val IrFunction.functionName: String
             }
 
             val name = this.name.mangleIfInternal(this.module, this.visibility)
-
-            if (this.name.asString() == "countByEnumeratingWithState") {
-                println("$name$signature")
-            }
 
             return "$name$signature"
         }
@@ -231,12 +227,7 @@ internal val IrFunction.symbolName: String
         val containingDeclarationPart = parent.fqNameSafe.let {
             if (it.isRoot) "" else "$it."
         }
-        val result = "kfun:$containingDeclarationPart$functionName"
-
-        if (this.name.asString() == "countByEnumeratingWithState") {
-            println("symbolName = $result\ndescriptor = ${this.descriptor}")
-        }
-        return result
+        return "kfun:$containingDeclarationPart$functionName"
     }
 
 internal val IrField.symbolName: String

@@ -241,7 +241,7 @@ val IrDeclaration.isPropertyField get() =
     this is IrField && this.correspondingProperty != null
 
 val IrDeclaration.isTopLevelDeclaration get() =
-    try { parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField } catch(e: Throwable) {println("${ir2stringWhole(this)}"); throw e}
+    parent !is IrDeclaration && !this.isPropertyAccessor && !this.isPropertyField
 
 fun IrDeclaration.findTopLevelDeclaration(): IrDeclaration =
     if (this.isTopLevelDeclaration) this

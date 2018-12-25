@@ -79,26 +79,15 @@ internal class IrModuleSerialization(
     fun serializeDescriptorReference(declaration: IrDeclaration): KonanIr.DescriptorReference? {
 
         val descriptor = declaration.descriptor
-        if (descriptor.name.asString() == "Z_OK") println("serializeDescriptorReference: declaration $declaration descriptor=$descriptor")
 
         if (!declaration.isExported() && !((declaration as? IrDeclarationWithVisibility)?.visibility == Visibilities.INVISIBLE_FAKE)) {
-            if (descriptor.name.asString() == "Z_OK") {
-                println("is not expotred")
-            }
             return null
         }
-        if (descriptor.name.asString() == "Z_OK") println("A")
         if (declaration is IrAnonymousInitializer) return null
-        if (descriptor.name.asString() == "Z_OK") println("B")
 
         if (descriptor is ParameterDescriptor || (descriptor is VariableDescriptor && descriptor !is PropertyDescriptor) || descriptor is TypeParameterDescriptor) return null
-        if (descriptor.name.asString() == "Z_OK") println("C")
 
         val containingDeclaration = descriptor.containingDeclaration!!
-
-        if (descriptor.name.asString() == "Z_OK") {
-            println("containingDeclaration = $containingDeclaration")
-        }
 
         val (packageFqName, classFqName) = when (containingDeclaration) {
             is ClassDescriptor -> {
@@ -142,11 +131,6 @@ internal class IrModuleSerialization(
         val index = discoverableDescriptorsDeclaration?.let { declarationTable.indexByValue(it) }
         index?.let { descriptorTable.descriptorIndex(discoverableDescriptorsDeclaration.descriptor, it) }
 
-
-        if (descriptor.name.asString() == "Z_OK") {
-            println("declaration=$declaration, dsicoverable = $discoverableDescriptorsDeclaration, isBackingFiled = $isBackingField, index = $index")
-        }
-
         val proto = KonanIr.DescriptorReference.newBuilder()
             .setPackageFqName(packageFqName)
             .setClassFqName(classFqName)
@@ -168,7 +152,7 @@ internal class IrModuleSerialization(
             else if (declaration.name.asString().startsWith("<set-"))
                 proto.setIsSetter(true)
             else
-                error("A property accessor which is neither getter nor setter: $descriptor")
+                error("A property accessor which is neither a getter, nor a setter: $descriptor")
         } else if (isDefaultConstructor) {
             proto.setIsDefaultConstructor(true)
         } else if (isEnumEntry) {
@@ -183,8 +167,6 @@ internal class IrModuleSerialization(
     fun serializeIrSymbol(symbol: IrSymbol): KonanIr.IrSymbol {
         val declaration = symbol.owner as? IrDeclaration
             ?: error("Expected IrDeclaration") // TODO: change symbol to be IrSymbolDeclaration?
-
-        //println("serializeIrSymbol: descriptor = ${symbol.descriptor}, owner = ${declaration} symbol = $symbol parent = ${declaration.parent}")
 
         val proto = KonanIr.IrSymbol.newBuilder()
 
@@ -228,18 +210,10 @@ internal class IrModuleSerialization(
         proto.setTopLevelUniqId(newUniqId(topLevelUniqId))
 
         serializeDescriptorReference(declaration) ?. let {
-            if (declaration.descriptor.name.asString() == "Z_OK") println("serializeDescriptorReference returned: $it")
             proto.setDescriptorReference(it)
-        } ?: if (declaration.descriptor.name.asString() == "Z_OK") println("serializeDescriptorReference returned null!")
-        //serializeDescriptorReference(declaration.findTopLevelDeclaration()) ?. let { proto.setTopLevelDescriptorReference(it) }
+        }
 
-        //if (uniqId.index == 18900L) {
-        //            val owner = symbol.owner as IrDeclaration
-        //            println("serialized IrSymbol: index = ${uniqId.index}, descriptor = ${symbol.descriptor}, descriptorIndex = ${descriptorTable.descriptors[symbol.descriptor]},  owner = $owner symbol=$symbol owner.descriptor = ${owner.descriptor}")
-        //}
-
-        val result = proto.build()
-        return result
+        return proto.build()
     }
 
     /* ------- IrTypes ---------------------------------------------------------- */
@@ -866,16 +840,12 @@ internal class IrModuleSerialization(
         Modality.ABSTRACT -> KonanIr.ModalityKind.ABSTRACT_MODALITY
     }
 
-    private fun serializeIrConstructor(declaration: IrConstructor): KonanIr.IrConstructor {
-
-        //println("SERIALIZING: ${ir2stringWholezzz(declaration)}")
-
-        return KonanIr.IrConstructor.newBuilder()
+    private fun serializeIrConstructor(declaration: IrConstructor): KonanIr.IrConstructor =
+        KonanIr.IrConstructor.newBuilder()
             .setSymbol(serializeIrSymbol(declaration.symbol))
             .setBase(serializeIrFunctionBase(declaration as IrFunctionBase))
             .setIsPrimary(declaration.isPrimary)
             .build()
-    }
 
     private fun serializeIrFunction(declaration: IrSimpleFunction): KonanIr.IrFunction {
         val function = declaration// as IrFunctionImpl
@@ -986,8 +956,6 @@ internal class IrModuleSerialization(
     }
 
     private fun serializeIrClass(clazz: IrClass): KonanIr.IrClass {
-
-        if (setOf("Exception", "Throwable").contains(clazz.name.asString())) println("serializing: ${ir2stringWholezzz(clazz)}")
         val proto = KonanIr.IrClass.newBuilder()
             .setName(clazz.name.toString())
             .setSymbol(serializeIrSymbol(clazz.symbol))
@@ -1093,7 +1061,6 @@ internal class IrModuleSerialization(
             .setFqName(file.fqName.toString())
 
         file.declarations.forEach {
-            if (it.descriptor.name.asString() == "NSInvocation") println("NSInvocation is present in IR")
             if (it is IrTypeAlias) return@forEach
             if (it.descriptor.isExpectMember && !it.descriptor.isSerializableExpectClass) {
                 return@forEach
@@ -1101,10 +1068,6 @@ internal class IrModuleSerialization(
 
             val byteArray = serializeDeclaration(it).toByteArray()
             val uniqId = declarationTable.indexByValue(it)
-            // println("serializing ${it.descriptor} as $uniqId")
-            // if (!uniqId.isLocal) println("symbolName = ${it.symbolName()} ${it.symbolName().localHash.value}")
-            if (uniqId.index == -2569626503630051061L) println("uniqId = $uniqId, declaration for ${it.descriptor}")
-            if (it.descriptor.name.asString() == "NSInvocation") println("NSInvocation declaration: $uniqId, ${it.descriptor} in ${it.descriptor.containingDeclaration}")
             topLevelDeclarations.put(uniqId, byteArray)
             proto.addDeclarationId(newUniqId(uniqId))
         }

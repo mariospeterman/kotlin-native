@@ -5,42 +5,24 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.WithLogger
-import org.jetbrains.kotlin.backend.common.ir.ir2stringWhole
-import org.jetbrains.kotlin.backend.common.validateIrModule
-import org.jetbrains.kotlin.backend.konan.descriptors.getPackageFragments
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.konan.descriptors.isForwardDeclarationModule
 import org.jetbrains.kotlin.backend.konan.ir.KonanSymbols
 import org.jetbrains.kotlin.backend.konan.ir.ModuleIndex
-import org.jetbrains.kotlin.backend.konan.ir.NaiveSourceBasedFileEntryImpl
 import org.jetbrains.kotlin.backend.konan.llvm.emitLLVM
 import org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier
-import org.jetbrains.kotlin.backend.konan.lower.LateinitLowering
 import org.jetbrains.kotlin.backend.konan.serialization.*
-import org.jetbrains.kotlin.builtins.konan.KonanBuiltIns
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrFileSymbolImpl
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
-import org.jetbrains.kotlin.konan.library.exportForwardDeclarations
 import org.jetbrains.kotlin.konan.util.printMillisec
-import org.jetbrains.kotlin.konan.utils.KonanFactories.DefaultDeserializedDescriptorFactory
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
 import org.jetbrains.kotlin.psi2ir.Psi2IrTranslator
-import org.jetbrains.kotlin.resolve.descriptorUtil.module
-import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
-import org.jetbrains.kotlin.resolve.scopes.getDescriptorsFiltered
 import org.jetbrains.kotlin.serialization.konan.impl.moduleToLibrary
-import org.jetbrains.kotlin.storage.LockBasedStorageManager
 
 fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironment) {
 
@@ -88,34 +70,21 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
 
         val forwardDeclarationsModuleDescriptor = context.moduleDescriptor.allDependencyModules.firstOrNull { it.isForwardDeclarationModule }
 
-        val deserializer = printMillisec("constructor") { IrModuleDeserialization(context as WithLogger,
-            context.moduleDescriptor, generatorContext.irBuiltIns, generatorContext.symbolTable, forwardDeclarationsModuleDescriptor,
-            {moduleDescriptor: ModuleDescriptor, uniqId: UniqId -> moduleToLibrary[moduleDescriptor]!!.irDeclaration(uniqId.index, uniqId.isLocal)}) }
-        val specifics = context.config.configuration.get(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS)!!
-/*
-        val forwardDeclarationsModuleDescriptor = context.moduleDescriptor.allDependencyModules.firstOrNull { println("a module=$it"); it.isForwardDeclarationModule }
+        val deserializer = IrModuleDeserialization(
+            context as WithLogger,
+            context.moduleDescriptor,
+            generatorContext.irBuiltIns,
+            generatorContext.symbolTable,
+            forwardDeclarationsModuleDescriptor,
+            { moduleDescriptor: ModuleDescriptor, uniqId: UniqId -> moduleToLibrary[moduleDescriptor]!!.irDeclaration(uniqId.index, uniqId.isLocal) }
+        )
 
-        (forwardDeclarationsModuleDescriptor?.getPackageFragments() ?: emptyList()).map {println("a package fragment: $it"); it}
-            /*.filter { it.module ==  forwardDeclarationsModuleDescriptor}*/.flatMap {
-                    it.getMemberScope().getDescriptorsFiltered(/*DescriptorKindFilter.CLASSIFIERS*/)
-            }.forEach {
-                println("forward declaration: $it")
-            }
-*/
         val irModules = context.moduleDescriptor.allDependencyModules.map {
             val library = moduleToLibrary[it]
             if (library == null) {
-//                if (module.isForwardDeclarationModule) generateIrForwardDeclarationsModule(it)
                 return@map null
             }
-            //library.exportForwardDeclarations
-            it.getPackageFragments().forEach {frag ->
-                println("package fragment: $frag in $it")
-            }
-            printMillisec("${library.libraryName}") {
-                deserializer.deserializedIrModule(it, library.wholeIr)
-            }
-
+            deserializer.deserializedIrModule(it, library.wholeIr)
         }.filterNotNull()
 
         val symbols = KonanSymbols(context, generatorContext.symbolTable, generatorContext.symbolTable.lazyWrapper)

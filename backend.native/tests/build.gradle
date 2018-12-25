@@ -3051,7 +3051,6 @@ task produce_dynamic(type: DynamicKonanTest) {
                 "topLevel = 777 3\n"
 }
 
-/* it compares the compiler output. Remove debug dumps and uncomment.
 task library_mismatch(type: RunStandaloneKonanTest) {
     def dir = buildDir.absolutePath
     def lib = "$projectDir/link/versioning/empty.kt"
@@ -3066,10 +3065,10 @@ task library_mismatch(type: RunStandaloneKonanTest) {
     doFirst {
         def konancScript = isWindows() ? "konanc.bat" : "konanc"
         def konanc = "$dist/bin/$konancScript"
-        "$konanc $lib -p library -o $dir/1.2/empty -target $currentTarget -lv 1.2".execute().waitForProcessOutput()
-        "$konanc $lib -p library -o $dir/3.4/empty -target $someOtherTarget".execute().waitForProcessOutput()
-        "$konanc $lib -p library -o $dir/5.6/empty -target $currentTarget -lv 5.6".execute().waitForProcessOutput()
-        "$konanc $lib -p library -o $dir/7.8/empty -target $currentTarget -lv 7.8".execute().waitForProcessOutput()
+        "$konanc $lib -p library -o $dir/1.2/empty -target $currentTarget -lv 1.2".execute().waitFor()
+        "$konanc $lib -p library -o $dir/3.4/empty -target $someOtherTarget".execute().waitFor()
+        "$konanc $lib -p library -o $dir/5.6/empty -target $currentTarget -lv 5.6".execute().waitFor()
+        "$konanc $lib -p library -o $dir/7.8/empty -target $currentTarget -lv 7.8".execute().waitFor()
 
     }
     source = "link/versioning/hello.kt"
@@ -3081,7 +3080,6 @@ task library_mismatch(type: RunStandaloneKonanTest) {
         "Hello, versioned world!\n"
     goldValue = isWindows() ? messages.replaceAll('\\/', '\\\\') : messages
 }
-*/
 
 if (isMac() && project.testTarget != 'wasm32') {
     def target = ext.platformManager.targetByName(project.testTarget ?: 'host').name
@@ -3121,7 +3119,7 @@ if (isMac() && project.testTarget != 'wasm32') {
         swiftSources = ['framework/stdlib/stdlib.swift']
     }
 }
-/* fails because of 
+
 task buildKonanRegexTests(type: BuildKonanTest) {
     outputSourceSetName = "testOutputStdlib"
     compileList = [ "harmony_regex" ]
@@ -3136,7 +3134,6 @@ task runKonanRegexTests(type: RunKonanTest) {
     useFilter = false
     runnerLogger = RunKonanTest.Logger.GTEST
 }
-*/
 
 task buildKonanStdlibTests(type: BuildKonanTest) {
     outputSourceSetName = "testOutputStdlib"

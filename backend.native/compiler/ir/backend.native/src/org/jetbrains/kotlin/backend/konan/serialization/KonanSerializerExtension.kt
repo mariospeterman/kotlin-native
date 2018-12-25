@@ -23,13 +23,11 @@ internal class KonanSerializerExtension(val context: Context, override val metad
                                         val sourceFileMap: SourceFileMap, val declarationTable: DeclarationTable) :
         KotlinSerializerExtensionBase(KonanSerializerProtocol)/*, IrAwareExtension*/ {
 
-    //val inlineDescriptorTable = DescriptorTable(context.irBuiltIns)
     override val stringTable = KonanStringTable()
     override fun shouldUseTypeTable(): Boolean = true
 
     fun uniqId(descriptor: DeclarationDescriptor): KonanProtoBuf.DescriptorUniqId? {
         val index = declarationTable.descriptorTable.descriptors[descriptor]
-        if (index == 744676413816618719L) error("descriptor = $descriptor")
         return index?.let { newDescriptorUniqId(it) }
     }
 
@@ -65,11 +63,6 @@ internal class KonanSerializerExtension(val context: Context, override val metad
                                 childSerializer: DescriptorSerializer) {
         uniqId(descriptor) ?. let { proto.setExtension(KonanProtoBuf.classUniqId, it) }
         super.serializeClass(descriptor, proto, versionRequirementTable, childSerializer)
-        //context.ir.classesDelegatedBackingFields[descriptor]?.forEach {
-        //    proto.addProperty(childSerializer.propertyProto(it))
-        //}
-        // Invocation of the propertyProto above can add more types
-        // to the type table that should also be serialized.
         childSerializer.typeTable.serialize()?.let { proto.mergeTypeTable(it) }
     }
 
