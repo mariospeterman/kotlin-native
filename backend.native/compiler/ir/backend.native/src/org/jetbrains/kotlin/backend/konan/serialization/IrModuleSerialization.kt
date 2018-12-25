@@ -40,15 +40,14 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrUnaryPrimitiveImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrTypeBase
-import org.jetbrains.kotlin.ir.util.hasInlineFunctions
 import org.jetbrains.kotlin.metadata.KonanIr
 import org.jetbrains.kotlin.resolve.descriptorUtil.classId
 import org.jetbrains.kotlin.types.Variance
 
 internal class IrModuleSerialization(
     val logger: WithLogger,
-    val declarationTable: DeclarationTable,
-    val onlyForInlines: Boolean = false
+    val declarationTable: DeclarationTable//,
+    //val onlyForInlines: Boolean = false
 ) {
 
     private val loopIndex = mutableMapOf<IrLoop, Int>()
@@ -1094,16 +1093,18 @@ internal class IrModuleSerialization(
             .setFqName(file.fqName.toString())
 
         file.declarations.forEach {
+            if (it.descriptor.name.asString() == "NSInvocation") println("NSInvocation is present in IR")
             if (it is IrTypeAlias) return@forEach
             if (it.descriptor.isExpectMember && !it.descriptor.isSerializableExpectClass) {
                 return@forEach
             }
-            if (onlyForInlines && !it.hasInlineFunctions()) return@forEach
 
             val byteArray = serializeDeclaration(it).toByteArray()
             val uniqId = declarationTable.indexByValue(it)
             // println("serializing ${it.descriptor} as $uniqId")
             // if (!uniqId.isLocal) println("symbolName = ${it.symbolName()} ${it.symbolName().localHash.value}")
+            if (uniqId.index == -2569626503630051061L) println("uniqId = $uniqId, declaration for ${it.descriptor}")
+            if (it.descriptor.name.asString() == "NSInvocation") println("NSInvocation declaration: $uniqId, ${it.descriptor} in ${it.descriptor.containingDeclaration}")
             topLevelDeclarations.put(uniqId, byteArray)
             proto.addDeclarationId(newUniqId(uniqId))
         }

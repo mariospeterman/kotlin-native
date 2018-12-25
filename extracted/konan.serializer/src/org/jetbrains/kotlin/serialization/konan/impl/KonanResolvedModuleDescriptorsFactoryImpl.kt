@@ -143,6 +143,7 @@ private class ForwardDeclarationsPackageFragmentDescriptor(
         }
 
         private fun createDeclaration(name: Name): ClassDescriptor {
+            println("ForwardDeclarationsPackageFragmentDescriptor($fqName): createDeclaration(${name.asString()})")
             return ClassDescriptorImpl(
                     this@ForwardDeclarationsPackageFragmentDescriptor,
                     name,

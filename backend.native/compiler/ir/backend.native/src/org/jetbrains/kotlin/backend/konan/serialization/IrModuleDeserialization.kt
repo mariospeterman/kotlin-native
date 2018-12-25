@@ -59,6 +59,8 @@ import org.jetbrains.kotlin.metadata.KonanIr.IrVarargElement.VarargElementCase
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameOrNull
+import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameUnsafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.*
 import org.jetbrains.kotlin.serialization.konan.KonanSerializerProtocol
@@ -79,6 +81,7 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
     val reachableTopLevels = mutableSetOf<UniqIdKey>()
     val deserializedTopLevels = mutableSetOf<UniqIdKey>()
     val forwardDeclarations = mutableSetOf<IrSymbol>()
+    val resolvedForwardDeclarations = mutableMapOf<UniqIdKey, UniqIdKey>()
 
     //val localToTopLevel = mutableMapOf<DeclarationDescriptor, DeclarationDescriptor>()
 
@@ -89,7 +92,6 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
             assert(symbolTable.referenceSimpleFunction(it.descriptor) == it.symbol)
             currentIndex++
         }
-
     }
 
     fun deserializeDescriptorReference(proto: KonanIr.DescriptorReference): DeclarationDescriptor {
@@ -112,7 +114,20 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
         }
 
         if (proto.packageFqName.startsWith("cnames") || proto.packageFqName.startsWith("objcnames")) {
-            return currentModule.findClassAcrossModuleDependencies(ClassId(packageFqName, FqName(proto.name), false))!!
+            val descriptor =  currentModule.findClassAcrossModuleDependencies(ClassId(packageFqName, FqName(proto.name), false))!!
+            if (descriptor.name.asString() == "NSInvocation") println("findClassAcrossModuleDependencies: $descriptor in ${descriptor.containingDeclaration}")
+            if (!descriptor.fqNameUnsafe.asString().startsWith("cnames") && !descriptor.fqNameUnsafe.asString().startsWith("objcnames")) {
+                if (descriptor is DeserializedClassDescriptor) {
+                    val uniqId = UniqId(descriptor.getUniqId()!!.index, false)
+                    val newKey = UniqIdKey(null, uniqId)
+                    val oldKey = UniqIdKey(null, UniqId(protoIndex!!, false))
+
+                    resolvedForwardDeclarations.put(oldKey, newKey)
+                } else {
+                    /* ??? */
+                }
+            }
+            return descriptor
         }
 
         if (proto.isEnumEntry) {
@@ -165,6 +180,8 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
 
         if (!deserializedTopLevels.contains(topLevelKey)) reachableTopLevels.add(topLevelKey)
 
+
+
         val symbol = deserializedSymbols.getOrPut(key) {
             val descriptor = if (proto.hasDescriptorReference()) {
                 val deserialized = deserializeDescriptorReference(proto.descriptorReference)
@@ -172,6 +189,10 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
                 deserialized
             } else {
                 null
+            }
+
+            resolvedForwardDeclarations[key]?.let {
+                if (!deserializedTopLevels.contains(it)) reachableTopLevels.add(it) // Assuming forward declarations are always top levels.
             }
 
             val newSymbol = when (proto.kind) {
@@ -1399,7 +1420,7 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
                     deserializedModuleDescriptor = previousModuleDescriptor
                     reachableTopLevels.remove(key)
                     deserializedTopLevels.add(key)
-                    println("module descriptor is null, continue")
+                    println("module descriptor is null, continue: $key")
                     continue
                 }
 

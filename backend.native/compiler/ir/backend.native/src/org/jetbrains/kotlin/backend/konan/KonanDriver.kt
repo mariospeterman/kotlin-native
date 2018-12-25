@@ -28,8 +28,8 @@ import org.jetbrains.kotlin.descriptors.PackageFragmentDescriptor
 import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrFileSymbolImpl
-import org.jetbrains.kotlin.ir.util.hasInlineFunctions
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
+import org.jetbrains.kotlin.konan.library.exportForwardDeclarations
 import org.jetbrains.kotlin.konan.util.printMillisec
 import org.jetbrains.kotlin.konan.utils.KonanFactories.DefaultDeserializedDescriptorFactory
 import org.jetbrains.kotlin.name.FqName
@@ -108,6 +108,7 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
 //                if (module.isForwardDeclarationModule) generateIrForwardDeclarationsModule(it)
                 return@map null
             }
+            //library.exportForwardDeclarations
             it.getPackageFragments().forEach {frag ->
                 println("package fragment: $frag in $it")
             }
@@ -147,7 +148,7 @@ fun runTopLevelPhases(konanConfig: KonanConfig, environment: KotlinCoreEnvironme
 
     phaser.phase(KonanPhase.SERIALIZER) {
         val declarationTable = DeclarationTable(context.irModule!!.irBuiltins, DescriptorTable())
-        val serializedIr = IrModuleSerialization(context, declarationTable, onlyForInlines = false).serializedIrModule(context.irModule!!)
+        val serializedIr = IrModuleSerialization(context, declarationTable/*, onlyForInlines = false*/).serializedIrModule(context.irModule!!)
 
         val serializer = KonanSerializationUtil(context, context.config.configuration.get(CommonConfigurationKeys.METADATA_VERSION)!!, declarationTable)
         context.serializedLinkData =
