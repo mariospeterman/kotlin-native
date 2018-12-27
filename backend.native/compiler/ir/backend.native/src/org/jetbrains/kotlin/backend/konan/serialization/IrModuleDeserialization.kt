@@ -135,6 +135,10 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
                 .getContributedFunctions(Name.identifier(name), NoLookupLocation.FROM_BACKEND).single()
         }
 
+        if (protoIndex == 6729861296964714911L) {
+            println("members = $members")
+        }
+
         members.forEach { member ->
             if (proto.isDefaultConstructor && member is ClassConstructorDescriptor) return member
 
@@ -145,6 +149,11 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
                     setOf(member)
 
             val memberIndices = realMembers.map { it.getUniqId()?.index }.filterNotNull()
+
+            if (protoIndex == 6729861296964714911L) {
+                println("realMembers = $realMembers")
+                println("memberIndicies = $memberIndices")
+            }
 
             if (memberIndices.contains(protoIndex)) {
 
@@ -159,7 +168,7 @@ class IrModuleDeserialization(val logger: WithLogger, val currentModule: ModuleD
 
             }
         }
-        error("Could not find serialized descriptor for index: ${proto.uniqId.index} ")
+        error("Could not find serialized descriptor for index: ${proto.uniqId.index} ${proto.packageFqName},${proto.classFqName},${proto.name}")
     }
 
     fun deserializeIrSymbol(proto: KonanIr.IrSymbol): IrSymbol {

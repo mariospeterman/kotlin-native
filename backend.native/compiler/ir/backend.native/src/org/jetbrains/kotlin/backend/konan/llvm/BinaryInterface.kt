@@ -157,6 +157,12 @@ private val IrFunction.signature: String
     get() {
         val extensionReceiverPart = this.extensionReceiverParameter?.extensionReceiverNamePart ?: ""
         val argsPart = this.valueParameters.map {
+
+        // TODO: there are clashes originating from ObjectiveC interop.
+        // kotlinx.cinterop.ObjCClassOf<T>.create(format: kotlin.String): T defined in platform.Foundation in file Foundation.kt
+        // and
+        // kotlinx.cinterop.ObjCClassOf<T>.create(string: kotlin.String): T defined in platform.Foundation in file Foundation.kt
+
             val argName = if (this.hasObjCFactoryAnnotation() || this.isObjCClassMethod()) "${it.name}:" else ""
             "$argName${typeToHashString(it.type)}${if (it.isVararg) "_VarArg" else ""}"
         }.joinToString(";")
@@ -185,7 +191,20 @@ internal val IrFunction.functionName: String
 
                     append("objc:")
                     append(it.selector)
-                    if (this@with is IrConstructor && this@with.isObjCConstructor()) append ("#Constructor")
+                    if (this@with is IrConstructor && this@with.isObjCConstructor()) append("#Constructor")
+
+                    // We happen to have the clashing combinations such as
+                    //@ObjCMethod("issueChallengeToPlayers:message:", "objcKniBridge1165")
+                    //external fun GKScore.issueChallengeToPlayers(playerIDs: List<*>?, message: String?): Unit
+                    //@ObjCMethod("issueChallengeToPlayers:message:", "objcKniBridge1172")
+                    //external fun GKScore.issueChallengeToPlayers(playerIDs: List<*>?, message: String?): Unit
+                    // So disambiguate by the name of the bridge for now.
+                    // TODO: idealy we'd never generate such identical declarations.
+
+                    if (this@with is IrSimpleFunction && this@with.hasObjCMethodAnnotation()) {
+                        this@with.objCMethodArgValue("selector") ?.let { append("#$it") }
+                        this@with.objCMethodArgValue("bridge") ?.let { append("#$it") }
+                    }
                 }
             }
 

@@ -124,6 +124,20 @@ private fun objCMethodInfoByBridge(packageView: PackageViewDescriptor, bridgeNam
     )
 }
 
+fun IrSimpleFunction.objCMethodArgValue(argName: String): String? {
+    val methodAnnotation = this.annotations.findAnnotation(objCMethodFqName) ?: return null
+    methodAnnotation.symbol.owner.valueParameters.forEachIndexed { index, parameter ->
+        if (parameter.name.asString() == argName) {
+            val bridgeArgument = methodAnnotation.getValueArgument(index) as IrConst<kotlin.String>
+            return bridgeArgument.value
+        }
+    }
+    return null
+}
+
+fun IrSimpleFunction.hasObjCMethodAnnotation() =
+    this.annotations.findAnnotation(objCMethodFqName) != null
+
 /**
  * @param onlyExternal indicates whether to accept overriding methods from Kotlin classes
  */

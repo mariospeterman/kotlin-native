@@ -21,11 +21,9 @@ import org.jetbrains.kotlin.backend.common.ir.ir2string
 import org.jetbrains.kotlin.backend.konan.descriptors.findTopLevelDeclaration
 import org.jetbrains.kotlin.backend.konan.descriptors.isExpectMember
 import org.jetbrains.kotlin.backend.konan.descriptors.isSerializableExpectClass
-import org.jetbrains.kotlin.backend.konan.ir.ir2stringWholezzz
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.name
 import org.jetbrains.kotlin.backend.konan.library.SerializedIr
 import org.jetbrains.kotlin.backend.konan.llvm.isExported
-import org.jetbrains.kotlin.backend.konan.llvm.localHash
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.ClassKind.*
 import org.jetbrains.kotlin.ir.IrElement
@@ -47,7 +45,6 @@ import org.jetbrains.kotlin.types.Variance
 internal class IrModuleSerialization(
     val logger: WithLogger,
     val declarationTable: DeclarationTable//,
-    //val onlyForInlines: Boolean = false
 ) {
 
     private val loopIndex = mutableMapOf<IrLoop, Int>()
@@ -79,6 +76,10 @@ internal class IrModuleSerialization(
     fun serializeDescriptorReference(declaration: IrDeclaration): KonanIr.DescriptorReference? {
 
         val descriptor = declaration.descriptor
+
+        //if (descriptor.name.asString() == "class" && (descriptor.containingDeclaration as DeclarationDescriptor).name.asString() == "Companion" && ((descriptor.containingDeclaration as DeclarationDescriptor).containingDeclaration as DeclarationDescriptor).name.asString() == "PHAdjustmentData") {
+        //    println("serializeDescriptorReference: $descriptor")
+        //}
 
         if (!declaration.isExported() && !((declaration as? IrDeclarationWithVisibility)?.visibility == Visibilities.INVISIBLE_FAKE)) {
             return null
@@ -160,6 +161,15 @@ internal class IrModuleSerialization(
         } else if (isEnumSpecial) {
             proto.setIsEnumSpecial(true)
         }
+
+        //
+        //if (descriptor.name.asString() == "class" && (descriptor.containingDeclaration as DeclarationDescriptor).name.asString() == "Companion" && ((descriptor.containingDeclaration as DeclarationDescriptor).containingDeclaration as DeclarationDescriptor).name.asString() == "PHAdjustmentData") {
+        //    println("serializeDescriptorReference: index = $index declaration = ${declaration} declaration.isExported() = ${declaration.isExported()}")
+        //    println("discoverableDescriptior: ${discoverableDescriptorsDeclaration?.descriptor}")
+        //    println("serializeDescriptorReference: index = $index discoverableDescriptorsDeclaration = ${discoverableDescriptorsDeclaration} discoverableDescriptorsDeclaration.isExported() = ${discoverableDescriptorsDeclaration?.isExported()}")
+        //
+        //}
+        //
 
         return proto.build()
     }
@@ -1086,7 +1096,7 @@ internal class IrModuleSerialization(
 
     fun serializedIrModule(module: IrModuleFragment): SerializedIr {
         val moduleHeader = serializeModule(module).toByteArray()
-        return SerializedIr(moduleHeader, topLevelDeclarations, declarationTable.textual)
+        return SerializedIr(moduleHeader, topLevelDeclarations, declarationTable.debugIndex)
 
     }
 }

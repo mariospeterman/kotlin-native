@@ -32,7 +32,7 @@ internal class KonanSerializerExtension(val context: Context, override val metad
     }
 
     override fun serializeType(type: KotlinType, proto: ProtoBuf.Type.Builder) {
-        // TODO: For debugging purpose we store the textual 
+        // TODO: For debugging purpose we store the debugIndex
         // representation of serialized types.
         // To be removed.
         proto.setExtension(KonanProtoBuf.typeText, type.toString())

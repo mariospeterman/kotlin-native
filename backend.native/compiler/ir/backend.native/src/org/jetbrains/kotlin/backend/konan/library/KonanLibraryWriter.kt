@@ -34,7 +34,7 @@ class LinkData(
 class SerializedIr (
     val module: ByteArray,
     val declarations: Map<UniqId, ByteArray>,
-    val index: Map<UniqId, String>
+    val debugIndex: Map<UniqId, String>
 )
 
 interface MetadataWriter {

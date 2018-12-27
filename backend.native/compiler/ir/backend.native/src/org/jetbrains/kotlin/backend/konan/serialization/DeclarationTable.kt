@@ -1,6 +1,5 @@
 package org.jetbrains.kotlin.backend.konan.serialization
 
-import org.jetbrains.kotlin.backend.konan.descriptors.isTopLevelDeclaration
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.fqNameSafe
 import org.jetbrains.kotlin.backend.konan.irasdescriptors.name
 import org.jetbrains.kotlin.backend.konan.llvm.*
@@ -28,10 +27,7 @@ val IrDeclaration.uniqName: Name
 
 internal fun IrDeclaration.symbolName(): String = when (this) {
     is IrFunction
-    -> {
-        //println("### this.uniqFunctionName = ${this.uniqFunctionName}")
-        this.uniqFunctionName
-    }
+    -> this.uniqFunctionName
     is IrProperty
     -> this.symbolName
     is IrClass
@@ -47,16 +43,6 @@ internal val IrDeclaration.uniqId: Long
     get() = this.symbolName().localHash.value
 
 fun <K, V> MutableMap<K, V>.putOnce(k:K, v: V): Unit {
-    // TODO: there are
-    // kotlinx.cinterop.ObjCClassOf<T>.create(format: kotlin.String): T defined in platform.Foundation in file Foundation.kt
-    // and
-    // kotlinx.cinterop.ObjCClassOf<T>.create(string: kotlin.String): T defined in platform.Foundation in file Foundation.kt
-    // and other clashes
-    //if (v is IrSimpleFunction && this.containsKey(k) && this[k] != v) {
-    //    println("a clash:")
-    //    println("${v.name} in ${v.parent}")
-    //}
-    //if (this.containsKey(k) && v is IrSimpleFunction &&  v.parent is IrFile && (v.parent as IrFile).fileEntry.name.endsWith("Foundation.kt")) return
     assert(!this.containsKey(k) || this[k] == v) {
         println("adding $v for $k, but it is already ${this[k]} for $k")
     }
@@ -86,8 +72,8 @@ data class UniqIdKey private constructor(val uniqId: UniqId, val moduleDescripto
 class DeclarationTable(val builtIns: IrBuiltIns, val descriptorTable: DescriptorTable) {
 
     val table = mutableMapOf<IrDeclaration, UniqId>()
-    val reverse = mutableMapOf<UniqId, IrDeclaration>() // TODO: remove me. Only needed during the development.
-    val textual = mutableMapOf<UniqId, String>()
+    //val reverse = mutableMapOf<UniqId, IrDeclaration>() // TODO: remove me. Only needed during the development.
+    val debugIndex = mutableMapOf<UniqId, String>()
     val descriptors = descriptorTable
     var currentIndex = 0L
 
@@ -107,14 +93,20 @@ class DeclarationTable(val builtIns: IrBuiltIns, val descriptorTable: Descriptor
                     || value is IrValueParameter
                     || value is IrAnonymousInitializerImpl
             ) {
+                //if (currentIndex == 3443L) {
+                //    try { error("3443: $value ${value.descriptor} value.isExported() = ${value.isExported()} origin = ${value.origin}") } catch (e: Throwable) { e.printStackTrace() }
+                //}
                 UniqId(currentIndex++, true)
             } else {
+                //if (value.uniqId == 6382826262369102590L || value.uniqId == 6729861296964714911L) {
+                //    println("symbolName = ${value.symbolName()} hash = ${value.uniqId}")
+                //}
                 UniqId(value.uniqId, false)
             }
         }
-        reverse.putOnce(index, value)
+        //reverse.putOnce(index, value)
 
-        textual.put(index, "${if (index.isLocal) "" else value.symbolName()} descriptor = ${value.descriptor}")
+        debugIndex.put(index, "${if (index.isLocal) "" else value.symbolName()} descriptor = ${value.descriptor}")
 
         return index
     }
@@ -149,7 +141,7 @@ internal val IrEnumEntry.symbolName: String
         return "kenumentry:$containingDeclarationPart$name"
     }
 
-// This is basicly the same as .symbolName, but diambiguates external functions with the same C name.
+// This is basicly the same as .symbolName, but disambiguates external functions with the same C name.
 // In addition functions appearing in fq sequence appear as <full signature>.
 internal val IrFunction.uniqFunctionName: String
     get() {
